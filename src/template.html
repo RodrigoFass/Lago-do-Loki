@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lago Pontilhado</title>
+<script>
+// ===== Configuração (no Lively, use "Personalizar" em vez de editar aqui) =====
+// tela: 0 = esquerda (barco), 1 = direita (píer), 2 = cena inteira
+// gistId: cole aqui o ID do seu Gist de lembretes, se for usar fora do Lively
+window.WALL_DEFAULTS = /*DEFAULTS*/{}/*END*/;
+window.WALL_PREVIEW = /*PREVIEW*/false/*END*/;
+</script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; background: #05080f; overflow: hidden; }
+  body { font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif; }
+  #wrap { width: 100%; height: 100%; display: flex; }
+  .screen { position: relative; flex: 1 1 0; height: 100%; overflow: hidden; container-type: size; }
+  .screen canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+  body.preview { overflow: auto; background: #0b0d12; }
+  body.preview #wrap { height: auto; padding: 16px; }
+  body.preview .screen { flex: 1 1 auto; width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 4px; }
+  body.preview .screen.dual { aspect-ratio: 32 / 9; }
+  #controls { display: none; }
+  body.preview #controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+    padding: 0 16px 20px; color: #cfd3dc; font-size: 14px; }
+  #controls input[type=range] { flex: 1 1 260px; accent-color: #d9c48a; }
+  #controls button { background: #1c2230; color: #e6e8ee; border: 1px solid #2c3446; border-radius: 6px;
+    padding: 7px 12px; font: inherit; cursor: pointer; }
+  #controls button.on { background: #d9c48a; color: #14161c; border-color: #d9c48a; }
+  #hourLabel { font-variant-numeric: tabular-nums; min-width: 48px; }
+  #wx { opacity: .6; font-size: 13px; }
+
+  /* ===== painel do canto ===== */
+  .painel { position: absolute; z-index: 2; width: 36cqh; max-width: 44%; padding: 2.3cqh 2.5cqh 2cqh;
+    color: #f4efe2; font-size: 1.62cqh; line-height: 1.4; font-weight: 600;
+    background-color: rgba(6, 10, 18, 0.34);
+    background-image: repeating-conic-gradient(rgba(0, 0, 0, 0.34) 0 25%, transparent 0 50%);
+    background-size: 4px 4px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.55); pointer-events: none; }
+  .painel[hidden], .painel [hidden] { display: none !important; }
+  .p-hora { font: 700 5.6cqh/1 "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .p-data { margin-top: 0.6cqh; opacity: 0.72; }
+  .p-clima { margin-top: 1.2cqh; } .p-clima b { font-weight: 700; } .p-clima span { opacity: 0.6; }
+  .p-prova { margin-top: 1.5cqh; padding: 0.5cqh 0.9cqh; color: #1a1408; background: #f2c86a; font-weight: 700;
+    display: inline-block; max-width: 100%; text-shadow: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .p-prova:empty { display: none; }
+  .p-h { margin: 1.9cqh 0 0.5cqh; font-size: 1.12cqh; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; opacity: 0.55; }
+  .painel ul { list-style: none; }
+  .painel li { display: flex; gap: 1cqh; padding: 0.2cqh 0; align-items: baseline; }
+  .p-q { flex: 0 0 9.6cqh; opacity: 0.66; font-variant-numeric: tabular-nums; }
+  .p-q2 { flex: none; opacity: 0.6; font-size: 1.35cqh; font-variant-numeric: tabular-nums; }
+  .p-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .p-t i { font-style: normal; opacity: 0.55; font-size: 1.35cqh; }
+  li.prova .p-t { color: #ffd88a; }
+  li.atrasado .p-q2 { color: #ff9f86; opacity: 1; }
+  .p-lemb .p-t::before { content: "○ "; opacity: 0.55; }
+  li.p-mais .p-t::before { content: ""; } li.p-mais { opacity: 0.5; }
+  .p-gl { display: flex; align-items: center; gap: 0.7cqh; margin: 0.9cqh 0 0.15cqh; font-size: 1.1cqh;
+    letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.6; }
+  .p-g:first-child .p-gl { margin-top: 0.2cqh; }
+  .p-dot { width: 0.8cqh; height: 0.8cqh; display: inline-block; }
+  .p-musica { display: flex; align-items: center; gap: 1.2cqh; margin-top: 1.8cqh; padding-top: 1.5cqh; border-top: 1px solid rgba(255, 255, 255, 0.12); }
+  .p-capa { width: 4.8cqh; height: 4.8cqh; image-rendering: pixelated; flex: none; }
+  .p-mtxt { min-width: 0; }
+  .p-mtit, .p-mart { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .p-mtit::before { content: "♪ "; opacity: 0.7; }
+  .p-mart { opacity: 0.62; }
+  .p-rodape { margin-top: 1.4cqh; font-size: 1.1cqh; opacity: 0.45; } .p-rodape:empty { display: none; }
+</style>
+</head>
+<body>
+<div id="wrap"></div>
+<div id="controls">
+  <span id="hourLabel">--:--</span>
+  <input id="scrub" type="range" min="0" max="24" step="0.01" value="12">
+  <button id="live" class="on">Ao vivo</button>
+  <button id="lapse">Timelapse</button>
+  <button id="rainBtn">Simular chuva</button>
+  <button id="stormBtn">Simular tempestade</button>
+  <span id="fpsLabel" style="opacity:.6;font-size:13px"></span>
+  <span id="wx"></span>
+</div>
+<script>/*THREE*/</script>
+<script>/*MAIN*/</script>
+</body>
+</html>
