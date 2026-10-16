@@ -648,14 +648,14 @@ const dLegs = { fl: dogLeg(new V3(0.058, 0.05, 0.12), 0.15, false), fr: dogLeg(n
 // coleira vermelha com plaquinha dourada escrita "Loki"
 {
   const collar = mesh(new THREE.TorusGeometry(0.084, 0.011, 6, 28), lam({ color: 0xc8323c }));
-  collar.position.copy(new V3(0, 0.19, 0.13).sub(BODY_PIV)); collar.rotation.x = -0.35; dBodyG.add(collar);
+  collar.position.copy(new V3(0, 0.19, 0.13).sub(BODY_PIV)); collar.rotation.x = -0.35; /* coleira retirada */
   const tagTex = canvasTex(128, 128, (g, w, h) => { g.fillStyle = "#dcb54a"; g.beginPath(); g.arc(64, 64, 62, 0, 7); g.fill();
     g.strokeStyle = "#a8832a"; g.lineWidth = 7; g.stroke(); g.fillStyle = "#5a3e10"; g.font = "bold 38px Georgia, serif";
     g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(DOG_NAME, 64, 67); });
   tagTex.wrapS = tagTex.wrapT = THREE.ClampToEdgeWrapping;
   var dTag = mesh(new THREE.CircleGeometry(0.021, 22), new THREE.MeshPhongMaterial({ map: tagTex, specular: 0x886622, shininess: 70, side: THREE.DoubleSide }), true, false);
-  dTag.position.copy(new V3(0, 0.122, 0.215).sub(BODY_PIV)); dTag.rotation.x = -0.35; dBodyG.add(dTag);
-  const ring = mesh(new THREE.TorusGeometry(0.007, 0.002, 4, 10), lam({ color: 0xd8c27a })); ring.position.copy(new V3(0, 0.146, 0.212).sub(BODY_PIV)); dBodyG.add(ring);
+  dTag.position.copy(new V3(0, 0.122, 0.215).sub(BODY_PIV)); dTag.rotation.x = -0.35; /* plaquinha retirada junto */
+  const ring = mesh(new THREE.TorusGeometry(0.007, 0.002, 4, 10), lam({ color: 0xd8c27a })); ring.position.copy(new V3(0, 0.146, 0.212).sub(BODY_PIV));
 }
 // cabeça (gira no pescoço)
 const dHead = new THREE.Group(); dHead.position.copy(HEAD_PIV.clone().sub(BODY_PIV)); dBodyG.add(dHead);
@@ -726,7 +726,7 @@ const BOWL = new THREE.Group(); BOWL.position.set(PX + 0.66, 0.68, -1.0); world.
   const pts = [[0.0, 0.0], [0.058, 0.0], [0.075, 0.006], [0.088, 0.042], [0.092, 0.05], [0.084, 0.052], [0.072, 0.02], [0.0, 0.02]].map(([x, y]) => new THREE.Vector2(x, y));
   const steel = new THREE.MeshPhongMaterial({ color: 0xc4c9cf, specular: 0x9aa0a8, shininess: 90, side: THREE.DoubleSide });
   BOWL.add(mesh(new THREE.LatheGeometry(pts, 28), steel));
-  const wat = mesh(new THREE.CircleGeometry(0.07, 24), new THREE.MeshPhongMaterial({ color: 0x5f9fbd, specular: 0xffffff, shininess: 140 }), false, true);
+  const wat = mesh(new THREE.CircleGeometry(0.07, 24), new THREE.MeshPhongMaterial({ color: 0x2a4a5a, specular: 0x6a7a88, shininess: 90, transparent: true, opacity: 0.82 }), false, true);
   wat.rotation.x = -Math.PI / 2; wat.position.y = 0.036; BOWL.add(wat);
   const nameTex = canvasTex(512, 64, (g, w, h) => { g.clearRect(0, 0, w, h); g.fillStyle = "#24476f"; g.font = "bold 46px 'Segoe UI', Arial, sans-serif";
     g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(DOG_NAME.toUpperCase(), w * 0.25, h / 2 + 2); g.fillStyle = "#c8323c"; g.fillText("♥", w * 0.75, h / 2 + 2); });
@@ -987,6 +987,7 @@ const WU = {
 const GLSL_NOISE = `
 uniform sampler2D tNoise;
 float w_hash(vec2 p){ p = fract(p*vec2(123.34, 456.21)); p += dot(p, p+45.32); return fract(p.x*p.y); }
+float i_hash(vec2 p){ uvec2 q = uvec2(ivec2(floor(p))); uint h = q.x*1597334677u ^ q.y*3812015801u; h ^= h >> 15; h *= 0x2c1b3c6du; h ^= h >> 12; h *= 0x297a2d39u; h ^= h >> 15; return float(h >> 8)*(1.0/16777216.0); }
 // ruído de valor suave lido de uma textura que guarda os 4 cantos de cada célula: 1 leitura, valor + derivada exata
 vec3 nD(vec2 p){
   vec2 i = floor(p), f = p - i;
@@ -1052,10 +1053,10 @@ vec2 pulseD(float rr, float k){
 vec3 rainD(vec2 p){
   vec2 g = p/0.45; vec2 id = floor(g), f = g - id; vec3 acc = vec3(0.0);
   for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
-    vec2 o = vec2(float(i), float(j)), cid = id + o; float h = w_hash(cid);
+    vec2 o = vec2(float(i), float(j)), cid = id + o; float h = i_hash(cid);
     float lt = uTime*(0.9 + 0.7*h)*0.7 + h*7.0; float ph = fract(lt), cyc = floor(lt);
-    float on = step(w_hash(cid*1.3 + cyc*0.71 + 2.0), uRain);
-    vec2 dv = f - o - vec2(w_hash(cid + cyc*1.7), w_hash(cid + cyc*3.1 + 5.0));
+    float on = step(i_hash(cid + vec2(cyc*3.0 + 101.0, cyc*5.0 + 7.0)), uRain);
+    vec2 dv = f - o - vec2(i_hash(cid + vec2(cyc*11.0 + 3.0, cyc*2.0 + 17.0)), i_hash(cid + vec2(cyc*7.0 + 29.0, cyc*13.0 + 5.0)));
     float dd = max(length(dv), 1e-4), x = (dd - ph*0.8)*40.0;
     float w = on*step(abs(x), 3.2)*(1.0 - ph);
     acc.x += w*sin(clamp(x, -3.14159, 3.14159));
@@ -1086,7 +1087,7 @@ void main(){
   vec3 w1 = fbmD3(wxz*0.42 + uOffD.xy), w2 = fbmD2(wxz*0.16 + 3.0 + uOffD.zw);
   float rr = ql + (w1.x - 0.5)*1.1 + (w2.x - 0.5)*1.8;
   vec2 grr = vec2(bc*gq.x + bs*gq.y, -bs*gq.x + bc*gq.y) + w1.yz*0.462 + w2.yz*0.288;
-  { vec2 pw = pulseD(rr, 5.0); g += pw.y*0.055*sstep(0.75, 1.5, rr)*grr; }
+  { vec2 pw = pulseD(rr, 5.0); g += pw.y*0.055*sstep(0.75, 1.5, rr)*rstep(6.5, 4.0, rr)*grr; }
   float splashI = 0.0;
   if (uSplash.z > 0.0 && uSplash.z < 3.0) {
     vec2 dv = wxz - uSplash.xy; float dl = max(length(dv), 1e-4), kk = dl - uSplash.z*0.55;
@@ -1110,7 +1111,7 @@ void main(){
   float st = n1(vec2(wxz.x*0.35 + uOffC.z, wxz.y*28.0 + n1(wxz*0.5 + uOffC.ww)*4.0));
   I += sstep(0.72, 0.97, st)*0.26;                                         // riscos horizontais finos
   I += sstep(0.03, 0.14, dot(nW.xz, vec2(-0.4679, -0.8838)))*0.2;          // brilho leve nas ondinhas
-  float fall = exp(-0.13*rr)*sstep(0.6, 1.2, rr);
+  float fall = exp(-0.13*rr)*sstep(0.6, 1.2, rr)*rstep(6.5, 4.0, rr);
   float pw = pulseD(rr, 3.6).x;
   float stat = sin(rr*3.6 + 1.3 + uBeat*1.2);
   I += (sstep(0.15, 0.95, pw)*1.1 + sstep(0.55, 0.98, stat)*0.3)*fall*(1.0 + 0.6*uBeat);
@@ -1253,7 +1254,7 @@ void main(){
     }
   }
   // estrelinhas refletidas à noite
-  if (uDay < 0.995) col += uHi*step(0.9986, w_hash(floor(gl_FragCoord.xy) + floor(uTime*2.5)*vec2(7.0, 13.0)))*0.7*(1.0 - uDay);
+  if (uDay < 0.995) col += uHi*step(0.9986, i_hash(gl_FragCoord.xy + mod(floor(uTime*2.5), 4096.0)*vec2(7.0, 13.0)))*0.7*(1.0 - uDay);
   // a água era levemente transparente sobre o fundo escuro: mantém o mesmo tom
   gl_FragColor = vec4(col*0.88 + uFloor*0.12, 1.0);
 }`,
@@ -2023,7 +2024,7 @@ function frame(now) {
   pu.uSunX.value = P.sunX; pu.uLeak.value = P.day > 0.4 ? P.sunI * (1 - cloudy) * 0.75 : 0;
   pu.uLeakCol.value.set(1.0, 0.86 - 0.14 * golden, 0.55 - 0.2 * golden);
   if (P.day > 0.4) { RIM.uRimCol.value.setRGB(1.0, 0.72, 0.42); RIM.uRim.value = 0.05 + 0.3 * golden; }
-  else { RIM.uRimCol.value.setRGB(0.45, 0.58, 0.92); RIM.uRim.value = 0.18 + 0.4 * (P.moonI / 0.7); }
+  else { RIM.uRimCol.value.setRGB(0.42, 0.48, 0.62); RIM.uRim.value = 0.04 + 0.08 * (P.moonI / 0.7); }
   renderer.setRenderTarget(null);
   if (!PROF.nopost) renderer.render(postScene, postCam);
 }
